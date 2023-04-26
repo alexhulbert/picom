@@ -7,6 +7,8 @@
 #include <xcb/render.h>
 #include <xcb/xcb.h>
 
+#include <backend/backend.h>
+
 #include "uthash_extra.h"
 
 // FIXME shouldn't need this
@@ -104,6 +106,7 @@ struct managed_win {
 	/// `state` is not UNMAPPED
 	void *win_image;
 	void *shadow_image;
+	void *mask_image;
 	/// Pointer to the next higher window to paint.
 	struct managed_win *prev_trans;
 	/// Number of windows above this window
@@ -209,7 +212,8 @@ struct managed_win {
 	/// Previous window opacity.
 	double opacity_target_old;
 	/// true if window (or client window, for broken window managers
-	/// not transferring client window's _NET_WM_WINDOW_OPACITY value) has opacity prop
+	/// not transferring client window's _NET_WM_WINDOW_OPACITY value) has opacity
+	/// prop
 	bool has_opacity_prop;
 	/// Cached value of opacity window attribute.
 	opacity_t opacity_prop;
@@ -227,6 +231,9 @@ struct managed_win {
 	switch_t fade_force;
 	/// Whether fading is excluded by the rules. Calculated.
 	bool fade_excluded;
+
+	/// Whether transparent clipping is excluded by the rules.
+	bool transparent_clipping_excluded;
 
 	// Frame-opacity-related members
 	/// Current window frame opacity. Affected by window opacity.
@@ -279,6 +286,9 @@ struct managed_win {
 	/// Transition direction of window
 	enum transition_direction transition_direction;
 
+	/// The custom window shader to use when rendering.
+	struct shader_info *fg_shader;
+
 #ifdef CONFIG_OPENGL
 	/// Textures and FBO background blur use.
 	glx_blur_cache_t glx_blur_cache;
@@ -291,9 +301,10 @@ struct managed_win {
 /// section
 void win_process_update_flags(session_t *ps, struct managed_win *w);
 void win_process_image_flags(session_t *ps, struct managed_win *w);
+bool win_bind_mask(struct backend_base *b, struct managed_win *w);
 /// Bind a shadow to the window, with color `c` and shadow kernel `kernel`
 bool win_bind_shadow(struct backend_base *b, struct managed_win *w, struct color c,
-                     struct conv *kernel);
+                     struct backend_shadow_context *kernel);
 
 /// Start the unmap of a window. We cannot unmap immediately since we might need to fade
 /// the window out.

@@ -36,9 +36,9 @@
 #include <X11/Xlib.h>
 #include <ev.h>
 #include <pixman.h>
-#include <xcb/xproto.h>
 #include <xcb/render.h>
 #include <xcb/sync.h>
+#include <xcb/xproto.h>
 
 #include "uthash_extra.h"
 #ifdef CONFIG_OPENGL
@@ -55,11 +55,11 @@
 #include "backend/driver.h"
 #include "compiler.h"
 #include "config.h"
+#include "list.h"
 #include "region.h"
+#include "render.h"
 #include "types.h"
 #include "utils.h"
-#include "list.h"
-#include "render.h"
 #include "win_defs.h"
 #include "x.h"
 
@@ -130,6 +130,14 @@ typedef struct _latom {
 	struct _latom *next;
 } latom_t;
 
+struct shader_info {
+	char *key;
+	char *source;
+	void *backend_shader;
+	uint64_t attributes;
+	UT_hash_handle hh;
+};
+
 /// Structure containing all necessary data for a session.
 typedef struct session {
 	// === Event handlers ===
@@ -150,6 +158,8 @@ typedef struct session {
 	ev_signal usr1_signal;
 	/// Signal handler for SIGINT
 	ev_signal int_signal;
+
+	// === Backend related ===
 	/// backend data
 	backend_t *backend_data;
 	/// backend blur context
@@ -160,6 +170,8 @@ typedef struct session {
 	void *file_watch_handle;
 	/// libev mainloop
 	struct ev_loop *loop;
+	/// Shaders
+	struct shader_info *shaders;
 
 	// === Display related ===
 	/// Whether the X server is grabbed by us
@@ -288,8 +300,8 @@ typedef struct session {
 	xcb_render_picture_t cshadow_picture;
 	/// 1x1 white Picture.
 	xcb_render_picture_t white_picture;
-	/// Gaussian map of shadow.
-	struct conv *gaussian_map;
+	/// Backend shadow context.
+	struct backend_shadow_context *shadow_context;
 	// for shadow precomputation
 	/// A region in which shadow is not painted on.
 	region_t shadow_exclude_reg;
